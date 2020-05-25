@@ -1,24 +1,51 @@
-import express from 'express';
-const mysql = require("mysql");
+const express = require("express");
+const mysql = require("mysql2");
 const app723 = express();
+const Client = require('ssh2').Client;
+const ssh723 = new Client();
+
 app723.use(express.json());
 
-const db723 = mysql.createConnection({
-    host: "127.0.0.1",
-    user: "root",
-    password: "password",
-    database: "jobparts"
-  });
-  
+let db723;
+const connection = new Promise(function(resolve, reject){
+	ssh723.on('ready', () => {
+        ssh723.forwardOut('127.0.0.1', 3306, 'db.cs.dal.ca',3306, (err, stream) => {
+	      if (err) throw err;
+	      	db723 = mysql.createConnection({
+	          host     : 'db.cs.dal.ca',
+	          user     : 'akamal',
+	          password : 'B00853723', 
+	          database : 'akamal',
+	          stream: stream
+	        });
+
+		    db723.connect(function(err){
+                console.log("MYSQL connected.")
+			    if (err) {
+				    resolve(connection);
+			    } else {
+				reject(err);
+			}
+		});
+	  });
+	}).connect({
+	  host: 'bluenose.cs.dal.ca',
+	  port: 22,
+	  username: 'akamal',
+	  password: 'B00853723'
+	});
+}).catch((err) => { if(err) throw err;})
+
 const PORT723 = process.env.PORT || 3000;
-const { check, validationResult } = require('express-validator');
+const { check, validationResult, checkSchema } = require('express-validator');
 
 app723.get('/', (req, res) =>
     res.send(`Hello from Jobs server`)
 );
 
 // get request to fetch jobs list from db
-app723.get('/api723/jobs', (req, res) =>{
+app723.get('/api723/jobs',
+(req, res) =>{
     let query723 = db723.query("SELECT * from jobparts ", (err, results)=>{
         if(err){
             throw err;
@@ -29,12 +56,19 @@ app723.get('/api723/jobs', (req, res) =>{
 });
 
 // get request to fetch specific job from db based on jobId and partId
-app723.get('/api723/jobs/:jobId/:partId', (req, res) => {
-    // if(isNaN(req.params.partId)){
-    //     console.log(`${req.params.partId} is not a number`)
-    //     res.status (400).send (`partID ${req.params.partId} is not a valid number`)
-    // }
-    // console.log(`${req.params.partId} is  a number`)
+app723.get('/api723/jobs/:jobId/:partId', checkSchema({
+    partId: {
+      in: [ 'query'],
+      errorMessage: 'partId is invalid',
+      isInt: true,
+      toInt: true
+    }}),
+    (req, res) => {
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
     let query723 =  db723.query(`SELECT * from jobparts WHERE jobName = '${req.params.jobId}' and partId = ${parseInt(req.params.partId)}`, (err, result)=>{
         console.log(result)
         console.log(`SELECT * from jobparts WHERE jobName = '${req.params.jobId}' and partId = ${parseInt(req.params.partId)}`)
@@ -125,6 +159,5 @@ app723.put('/api723/jobs',  [
 
 
 app723.listen(PORT723, () =>
-    // `template string`
     console.log(`Server is running on PORT ${PORT723}`)
 );
