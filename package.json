@@ -14,7 +14,7 @@
     "express-validator": "^6.4.1",
     "mysql": "^2.18.1",
     "mysql2": "^2.1.0",
-    "ssh2": "^0.8.9"
+    "ssh2": "^1.4.0"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
